@@ -1,20 +1,32 @@
 library(lmerTest)
 library(lme4)
 library(MuMIn)
+library(dplyr)
 
-setwd("C:\\Users\\tkotkch\\Documents\\dataset")
-d <- read.csv("regression_ready_data3.csv")
+# Read dataset
+setwd("C:\\dataset")
+d <- read.csv("regression_ready_data.csv")
 
-# Model1 for acceptance
+# Take the logarithm of and standardize the numerical variables.
+numeric_vars <- c("repo_age", "repo_commits", "author_coding_experience",
+                 "open_tasks", "pull_lines", "pull_desc_len",
+                 "reviewer_coding_experience", "reviewer_review_experience")
+
+d_processed <- d %>%
+  mutate(across(all_of(numeric_vars), ~ log(.x + 0.5))) %>%
+  mutate(across(all_of(numeric_vars), ~ as.numeric(scale(.x))))
+
+# Model1 for PR acceptance
 model_acceptance <- glmer(merged ~
-    edited +
-    log(repo_age / 30 + 0.5) +
-    log(repo_commits + 0.5) +
-    log(author_experience + 0.5) +
-    log(open_tasks + 0.5) +
-    log(pull_lines + 0.5) +
-    log(pull_desc_len + 0.5) +
-    log(reviewer_experience + 0.5) +
+    edited + # modified_or_not
+    repo_age +
+    repo_commits +
+    author_coding_experience +
+    open_tasks +
+    pull_lines +
+    pull_desc_len +
+    reviewer_coding_experience +
+    reviewer_review_experience +
     author_role_COLLABORATOR +
     author_role_CONTRIBUTOR +
     author_role_MEMBER +
@@ -42,26 +54,26 @@ model_acceptance <- glmer(merged ~
     PR_types_Testing +
     PR_types_Usage_Example +
     (1 | repo),
-    data = d,
+    data = d_processed,
     family = binomial(link = "logit")
 )
 
 print(summary(model_acceptance))
-print(r.squaredGLMM(model_acceptance))  # Marginal R² and Conditional R²
+print(r.squaredGLMM(model_acceptance))
 
 print("----------------------------------------")
 
-
-# Model2 for review time
+# Model2 for PR review time
 model_review_time <- lmer(log(close_time / 60 / 60 / 24 + 0.5) ~
-    edited +
-    log(repo_age / 30 + 0.5) +
-    log(repo_commits + 0.5) +
-    log(author_experience + 0.5) +
-    log(open_tasks + 0.5) +
-    log(pull_lines + 0.5) +
-    log(pull_desc_len + 0.5) +
-    log(reviewer_experience + 0.5) +
+    edited + # modified_or_not
+    repo_age +
+    repo_commits +
+    author_coding_experience +
+    open_tasks +
+    pull_lines +
+    pull_desc_len +
+    reviewer_coding_experience +
+    reviewer_review_experience +
     author_role_COLLABORATOR +
     author_role_CONTRIBUTOR +
     author_role_MEMBER +
@@ -89,9 +101,8 @@ model_review_time <- lmer(log(close_time / 60 / 60 / 24 + 0.5) ~
     PR_types_Testing +
     PR_types_Usage_Example +
     (1 | repo),
-    data = d
+    data = d_processed
 )
 
-print("===== 模型2：拉取请求评审时间（线性混合模型）=====")
 print(summary(model_review_time))
 print(r.squaredGLMM(model_review_time))
